@@ -17,6 +17,20 @@ class ViewController: UIViewController {
     @IBOutlet weak var ySlider: UISlider!
     @IBOutlet weak var angleLabel: UILabel!
     
+    var lastMainViewOrign = CGPoint(x: 0, y: 0)
+    var lastXValue: CGFloat = 0
+    var lastYValue: CGFloat = 0
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        lastMainViewOrign = CGPoint(x: -blendingImageView.frame.origin.x - (blendingImageView.bounds.width * 0.5) , y: -blendingImageView.frame.origin.y - (blendingImageView.bounds.height * 0.5))
+
+        updateBlendingView2()
+        lastXValue = CGFloat(xSlider.value) * mainImageView.bounds.width
+        lastYValue = CGFloat(ySlider.value) * mainImageView.bounds.height
+    }
+    
     @IBAction func rotateSliderChangedValue(_ sender: Any) {
         angleLabel.text = "Angle: \(rotateSlider.value)"
         let radians = rotateSlider.value * .pi / 180
@@ -30,14 +44,16 @@ class ViewController: UIViewController {
         let xValue = CGFloat(xSlider.value) * mainImageView.bounds.width
         blendingImageView.center = CGPoint(x: xValue, y: blendingImageView.center.y)
         //updateBlendingView()
-        updateBlendingView2()
+        updateBlendingView2(xDiff: lastXValue - xValue)
+        lastXValue = xValue
     }
     
     @IBAction func ySliderChangedValue(_ sender: Any) {
         let yValue = CGFloat(ySlider.value) * mainImageView.bounds.height
         blendingImageView.center = CGPoint(x: blendingImageView.center.x, y: yValue)
         //updateBlendingView()
-        updateBlendingView2()
+        updateBlendingView2(yDiff: lastYValue - yValue)
+        lastYValue = yValue
     }
     
     func updateBlendingView() {
@@ -76,7 +92,7 @@ class ViewController: UIViewController {
         blendingImageView.image = blendedImage
     }
     
-    func updateBlendingView2() {
+    func updateBlendingView2(xDiff: CGFloat = 0, yDiff: CGFloat = 0) {
         
         guard let mainViewImage = getImageFromView(view: mainImageView) else {return}
         
@@ -87,16 +103,19 @@ class ViewController: UIViewController {
         UIGraphicsBeginImageContextWithOptions(blendingImageView.bounds.size, true, UIScreen.main.scale)
         guard let context = UIGraphicsGetCurrentContext() else { UIGraphicsEndImageContext();return}
         
+        // X, Y translation
         let blendingOriginTransform = CGAffineTransform(translationX: (blendingImageView.bounds.width * 0.5), y: (blendingImageView.bounds.height * 0.5))
-        
+        context.concatenate(blendingOriginTransform)
+
+        // Rotation
         let radians:Float = atan2f(Float(blendingImageView.transform.b), Float(blendingImageView.transform.a))
         let rotateTransform: CGAffineTransform = CGAffineTransform(rotationAngle: CGFloat(radians))
-        
-        context.concatenate(blendingOriginTransform)
         context.concatenate(rotateTransform.inverted())
         
-        let mainViewOrigin = CGPoint(x: -blendingImageView.frame.origin.x - (blendingImageView.bounds.width * 0.5) , y: -blendingImageView.frame.origin.y - (blendingImageView.bounds.height * 0.5))
+        var mainViewOrigin = self.lastMainViewOrign
+        mainViewOrigin = CGPoint(x: mainViewOrigin.x + xDiff, y: mainViewOrigin.y + yDiff)
         mainViewImage.draw(at: mainViewOrigin)
+        self.lastMainViewOrign = mainViewOrigin
         
         // undo the rotate
         context.concatenate(rotateTransform)
